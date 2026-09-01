@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verify — AI Output Screening Tool</title>
+<meta name="description" content="Paste AI-generated text and get it screened for statistics, citations, absolute claims, quotes, dates and named references that need manual fact-checking before you publish or send them.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f6f5f1;
+    --paper-line:#e3e0d6;
+    --ink:#1c1a17;
+    --ink-dim:#6b6558;
+    --ink-faint:#9d9788;
+    --red:#c0392b;
+    --red-soft:#f4e3e0;
+    --amber:#b9791f;
+    --amber-soft:#f5ecdb;
+    --teal:#2b7a9e;
+    --teal-soft:#e1eef2;
+    --violet:#6b4fa0;
+    --violet-soft:#ebe5f4;
+    --green:#2e7d5b;
+    --green-soft:#e2efe9;
+    --slate:#5a6b87;
+    --slate-soft:#e6eaef;
+    --radius:3px;
+    --shadow: 0 1px 0 rgba(28,26,23,0.06);
+    font-size:16px;
+  }
+  *,*::before,*::after{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  body{
+    margin:0;
+    background:
+      repeating-linear-gradient(var(--paper-line) 0 1px, transparent 1px 34px),
+      var(--paper);
+    color:var(--ink);
+    font-family:"Inter", sans-serif;
+    line-height:1.6;
+  }
+  a{ color:inherit; }
+  ::selection{ background:var(--red); color:#fff; }
+
+  .skip-link{
+    position:absolute; top:-50px; left:12px; z-index:50;
+    background:var(--red); color:#fff; padding:8px 14px; border-radius:var(--radius);
+    font-weight:600; transition: top .2s ease;
+  }
+  .skip-link:focus{ top:12px; }
+
+  header.masthead{
+    border-bottom:2px solid var(--ink);
+    padding:28px 24px 20px;
+  }
+  .masthead-inner{
+    max-width:1180px; margin:0 auto;
+    display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap;
+  }
+  .masthead-title{
+    display:flex; align-items:baseline; gap:12px;
+  }
+  .masthead-title h1{
+    font-family:"Space Mono", monospace;
+    font-size:1.7rem;
+    margin:0;
+    letter-spacing:-0.01em;
+  }
+  .masthead-title h1 .strike{
+    color: var(--red);
+  }
+  .masthead-sub{
+    font-family:"Space Mono", monospace;
+    font-size:0.78rem;
+    color:var(--ink-dim);
+    letter-spacing:0.02em;
+  }
+  .masthead-tag{
+    font-size:0.85rem; color:var(--ink-dim); max-width:420px; margin:0;
+  }
+
+  main{ max-width:1180px; margin:0 auto; padding:32px 24px 80px; }
+
+  .intro-note{
+    display:flex; gap:12px; align-items:flex-start;
+    background:#fff; border:1px solid var(--paper-line); border-left:4px solid var(--red);
+    padding:14px 18px; border-radius:var(--radius); margin-bottom:28px; box-shadow:var(--shadow);
+    font-size:0.92rem; color:var(--ink-dim);
+  }
+  .intro-note strong{ color:var(--ink); }
+
+  .editor-shell{
+    display:grid;
+    grid-template-columns: 1fr;
+    gap:24px;
+  }
+
+  .panel{
+    background:#fff;
+    border:1px solid var(--paper-line);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+  }
+
+  .panel-head{
+    display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+    padding:16px 20px;
+    border-bottom:1px solid var(--paper-line);
+  }
+  .panel-head h2{
+    font-family:"Space Mono", monospace;
+    font-size:0.95rem;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    margin:0;
+  }
+  .panel-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+
+  textarea#inputText{
+    width:100%;
+    min-height:220px;
+    border:none;
+    resize:vertical;
+    padding:20px;
+    font-family:"Space Mono", monospace;
+    font-size:0.95rem;
+    line-height:1.7;
+    color:var(--ink);
+    background:transparent;
+  }
+  textarea#inputText:focus-visible{ outline:2px solid var(--red); outline-offset:-2px; }
+
+  .btn{
+    font-family:"Inter", sans-serif;
+    font-weight:600;
+    font-size:0.85rem;
+    padding:9px 16px;
+    border-radius:var(--radius);
+    border:1px solid var(--ink);
+    background:var(--ink);
+    color:#fff;
+    cursor:pointer;
+    transition:transform .15s ease, background .15s ease, opacity .15s ease;
+  }
+  .btn:hover{ transform:translateY(-1px); }
+  .btn:active{ transform:translateY(0); }
+  .btn-ghost{
+    background:transparent;
+    color:var(--ink);
+    border:1px solid var(--paper-line);
+  }
+  .btn-ghost:hover{ border-color:var(--ink); }
+  .btn-red{
+    background:var(--red);
+    border-color:var(--red);
+  }
+  .btn:focus-visible{ outline:2px solid var(--red); outline-offset:2px; }
+  .btn[disabled]{ opacity:0.5; cursor:not-allowed; transform:none; }
+
+  /* Results layout */
+  .results-grid{
+    display:grid;
+    grid-template-columns: 1fr;
+    gap:24px;
+  }
+
+  .manuscript{
+    padding:28px 30px;
+    font-family:"Space Mono", monospace;
+    font-size:0.98rem;
+    line-height:2;
+    white-space:pre-wrap;
+    word-wrap:break-word;
+  }
+  .manuscript mark{
+    background:transparent;
+    color:inherit;
+    padding:0 1px;
+    border-radius:2px;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+    cursor:help;
+  }
+  .flag-stat{ text-decoration: underline wavy var(--amber); background: var(--amber-soft); }
+  .flag-citation{ text-decoration: underline solid var(--teal); background: var(--teal-soft); }
+  .flag-absolute{ text-decoration: underline double var(--red); background: var(--red-soft); }
+  .flag-quote{ text-decoration: underline solid var(--green); background: var(--green-soft); }
+  .flag-date{ text-decoration: underline dashed var(--violet); background: var(--violet-soft); }
+  .flag-name{ text-decoration: underline dotted var(--slate); background: var(--slate-soft); }
+
+  .summary-bar{
+    display:flex; flex-wrap:wrap; gap:10px;
+    padding:16px 20px;
+    border-bottom:1px solid var(--paper-line);
+  }
+  .summary-chip{
+    display:flex; align-items:center; gap:8px;
+    font-family:"Space Mono", monospace;
+    font-size:0.78rem;
+    padding:6px 12px;
+    border-radius:999px;
+    border:1px solid var(--paper-line);
+    background:var(--paper);
+  }
+  .dot{ width:9px; height:9px; border-radius:50%; display:inline-block; }
+  .dot-stat{ background:var(--amber); }
+  .dot-citation{ background:var(--teal); }
+  .dot-absolute{ background:var(--red); }
+  .dot-quote{ background:var(--green); }
+  .dot-date{ background:var(--violet); }
+  .dot-name{ background:var(--slate); }
+
+  .checklist{ padding:8px 0 20px; }
+  .checklist-item{
+    display:flex; gap:12px; align-items:flex-start;
+    padding:12px 20px;
+    border-bottom:1px solid var(--paper-line);
+  }
+  .checklist-item:last-child{ border-bottom:none; }
+  .checklist-item input[type="checkbox"]{
+    margin-top:4px; width:16px; height:16px; accent-color:var(--red); flex-shrink:0;
+  }
+  .checklist-item.checked .item-text{
+    text-decoration:line-through;
+    color:var(--ink-faint);
+  }
+  .item-tag{
+    font-family:"Space Mono", monospace;
+    font-size:0.68rem;
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+    padding:2px 8px;
+    border-radius:999px;
+    white-space:nowrap;
+    flex-shrink:0;
+    margin-top:2px;
+  }
+  .tag-stat{ background:var(--amber-soft); color:var(--amber); }
+  .tag-citation{ background:var(--teal-soft); color:var(--teal); }
+  .tag-absolute{ background:var(--red-soft); color:var(--red); }
+  .tag-quote{ background:var(--green-soft); color:var(--green); }
+  .tag-date{ background:var(--violet-soft); color:var(--violet); }
+  .tag-name{ background:var(--slate-soft); color:var(--slate); }
+
+  .item-text{
+    font-size:0.9rem;
+    color:var(--ink);
+    flex-grow:1;
+  }
+  .item-hint{
+    display:block;
+    font-size:0.78rem;
+    color:var(--ink-faint);
+    margin-top:2px;
+  }
+
+  .empty-state{
+    padding:60px 24px;
+    text-align:center;
+    color:var(--ink-faint);
+    font-family:"Space Mono", monospace;
+    font-size:0.9rem;
+  }
+
+  .risk-score{
+    display:flex; align-items:center; gap:14px;
+    padding:20px;
+    border-bottom:1px solid var(--paper-line);
+  }
+  .risk-number{
+    font-family:"Space Mono", monospace;
+    font-size:2.4rem;
+    font-weight:700;
+    line-height:1;
+  }
+  .risk-label{
+    font-size:0.85rem; color:var(--ink-dim); max-width:320px;
+  }
+
+  footer{
+    max-width:1180px; margin:0 auto; padding:0 24px 60px;
+    color:var(--ink-faint); font-size:0.8rem;
+  }
+
+  @media (min-width: 980px){
+    .editor-shell{ grid-template-columns: 1fr; }
+    .results-grid{ grid-template-columns: 1.5fr 1fr; align-items:start; }
+    .results-grid .panel:last-child{ position: sticky; top: 20px; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{ transition-duration: .001ms !important; scroll-behavior:auto !important; }
+  }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="masthead">
+  <div class="masthead-inner">
+    <div class="masthead-title">
+      <h1>VERIFY<span class="strike">/</span>ai</h1>
+      <span class="masthead-sub">v0.1 — screening engine</span>
+    </div>
+    <p class="masthead-tag">Paste AI-generated text. Get every hallucination-prone claim flagged for a human to check — before it goes out under your name.</p>
+  </div>
+</header>
+
+<main id="main">
+
+  <div class="intro-note">
+    <span aria-hidden="true">⚠</span>
+    <p style="margin:0;"><strong>How this works:</strong> this runs entirely in your browser and does not access the internet, so it cannot confirm whether a claim is actually true. It uses pattern-matching to flag the <em>kinds</em> of statements that are most often wrong in AI output — statistics, citations, absolute claims, quotes, dates and named references — so you know exactly what to verify instead of re-reading everything blind.</p>
+  </div>
+
+  <div class="editor-shell">
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Paste text to screen</h2>
+        <div class="panel-actions">
+          <button class="btn btn-ghost" id="loadSampleBtn" type="button">Load sample</button>
+          <button class="btn btn-ghost" id="clearBtn" type="button">Clear</button>
+          <button class="btn btn-red" id="analyzeBtn" type="button">Screen text →</button>
+        </div>
+      </div>
+      <label for="inputText" class="visually-hidden" style="position:absolute;left:-9999px;">Text to screen</label>
+      <textarea id="inputText" placeholder="Paste the AI-generated email, report, article or answer you want screened…"></textarea>
+    </section>
+
+    <section class="results-grid" id="resultsGrid" hidden>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Marked-up text</h2>
+          <div class="panel-actions">
+            <button class="btn btn-ghost" id="copyChecklistBtn" type="button">Copy checklist</button>
+          </div>
+        </div>
+        <div class="summary-bar" id="summaryBar"></div>
+        <div class="manuscript" id="manuscriptOutput" aria-live="polite"></div>
+      </div>
+
+      <div class="panel">
+        <div class="risk-score">
+          <span class="risk-number" id="riskNumber">0</span>
+          <span class="risk-label">flagged items need a manual check before you rely on or publish this text.</span>
+        </div>
+        <div class="checklist" id="checklistOutput"></div>
+      </div>
+
+    </section>
+
+    <div class="empty-state" id="emptyState">
+      Paste some text above and press "Screen text" to see it marked up.
+    </div>
+
+  </div>
+
+</main>
+
+<footer>
+  <p>Verify/ai is a first-pass screening aid, not a fact-checking service — it flags patterns, it doesn't confirm truth. Always check flagged items against a real source. No text you paste here is sent anywhere; everything runs locally in this browser tab.</p>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  var inputText = document.getElementById("inputText");
+  var analyzeBtn = document.getElementById("analyzeBtn");
+  var clearBtn = document.getElementById("clearBtn");
+  var loadSampleBtn = document.getElementById("loadSampleBtn");
+  var copyChecklistBtn = document.getElementById("copyChecklistBtn");
+  var resultsGrid = document.getElementById("resultsGrid");
+  var emptyState = document.getElementById("emptyState");
+  var manuscriptOutput = document.getElementById("manuscriptOutput");
+  var checklistOutput = document.getElementById("checklistOutput");
+  var summaryBar = document.getElementById("summaryBar");
+  var riskNumber = document.getElementById("riskNumber");
+
+  var SAMPLE_TEXT = "According to a 2021 study by the Global Productivity Institute, remote workers are 47% more efficient than in-office staff. Dr. Elena Marchetti, the lead researcher, said \"this is the most significant shift in workplace behavior we have ever recorded.\" The report, published in the Journal of Applied Workplace Science, surveyed over 12,000 employees across 30 countries. Some experts argue this is undeniably the best evidence yet, and that hybrid work will always outperform traditional office models. The findings guarantee a 15% increase in company revenue within the first year of adoption.";
+
+  var CATEGORIES = {
+    stat:      { label: "Statistic",        hint: "Search for the exact figure — AI often invents precise-sounding numbers.", cls: "stat" },
+    citation:  { label: "Citation / source", hint: "Look up whether this study, report or publication actually exists.",      cls: "citation" },
+    absolute:  { label: "Absolute claim",    hint: "Overconfident language often hides a claim that isn't fully supported.", cls: "absolute" },
+    quote:     { label: "Quoted text",       hint: "Confirm this exact quote and its speaker are real, not fabricated.",     cls: "quote" },
+    date:      { label: "Date reference",    hint: "Double-check the year or date actually matches the event described.",   cls: "date" },
+    name:      { label: "Named reference",   hint: "Confirm this person, place or organization exists as described.",       cls: "name" }
+  };
+
+  // Order matters: more specific patterns first so they win overlap resolution.
+  var PATTERNS = [
+    { type: "citation", regex: /\b(according to|study by|studies by|research (?:from|by)|survey (?:by|from|of)|report (?:by|from)|published in|journal of|university of)\b[^.,;\n]{0,70}/gi },
+    { type: "quote",    regex: /"([^"\n]{3,200})"/g },
+    { type: "quote",    regex: /[\u201C]([^\u201D\n]{3,200})[\u201D]/g },
+    { type: "absolute", regex: /\b(always|never|guaranteed|guarantees|100%|proven|undeniably|definitely|the best|the worst|the only|unique|revolutionary|first ever|no one else|nobody else|everyone knows|impossible to)\b/gi },
+    { type: "stat",     regex: /[$€£]\s?\d[\d,]*(\.\d+)?\s?(million|billion|thousand|k|m|b)?\b/gi },
+    { type: "stat",     regex: /\b\d[\d,]*(\.\d+)?\s?(%|percent|percentage points)\b/gi },
+    { type: "stat",     regex: /\b\d[\d,]*(\.\d+)?\s?(million|billion|thousand)\b/gi },
+    { type: "date",     regex: /\b(19|20)\d{2}\b/g },
+    { type: "name",     regex: /\b(Dr\.|Professor|Prof\.)\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\b/g },
+    { type: "name",     regex: /\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\b/g }
+  ];
+
+  function escapeHtml(str){
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  function collectMatches(text){
+    var matches = [];
+    PATTERNS.forEach(function(p){
+      var re = new RegExp(p.regex.source, p.regex.flags);
+      var m;
+      while ((m = re.exec(text)) !== null) {
+        if (m[0].length < 2) continue;
+        matches.push({
+          start: m.index,
+          end: m.index + m[0].length,
+          text: m[0],
+          type: p.type
+        });
+        if (m[0].length === 0) re.lastIndex++;
+      }
+    });
+
+    // Sort: earliest start first, then longest match first (so specific > generic on overlap)
+    matches.sort(function(a, b){
+      if (a.start !== b.start) return a.start - b.start;
+      return (b.end - b.start) - (a.end - a.start);
+    });
+
+    // Resolve overlaps greedily
+    var resolved = [];
+    var lastEnd = -1;
+    matches.forEach(function(m){
+      if (m.start >= lastEnd) {
+        resolved.push(m);
+        lastEnd = m.end;
+      }
+    });
+
+    return resolved;
+  }
+
+  function buildManuscriptHtml(text, matches){
+    var html = "";
+    var cursor = 0;
+    matches.forEach(function(m){
+      html += escapeHtml(text.slice(cursor, m.start));
+      var cat = CATEGORIES[m.type];
+      html += '<mark class="flag-' + cat.cls + '" title="' + cat.label + ' — flagged for manual check">' + escapeHtml(m.text) + '</mark>';
+      cursor = m.end;
+    });
+    html += escapeHtml(text.slice(cursor));
+    return html;
+  }
+
+  function buildSummaryBar(counts){
+    summaryBar.innerHTML = "";
+    Object.keys(CATEGORIES).forEach(function(key){
+      var count = counts[key] || 0;
+      var cat = CATEGORIES[key];
+      var chip = document.createElement("span");
+      chip.className = "summary-chip";
+      chip.innerHTML = '<span class="dot dot-' + cat.cls + '" aria-hidden="true"></span>' + cat.label + ': ' + count;
+      summaryBar.appendChild(chip);
+    });
+  }
+
+  function buildChecklist(matches){
+    checklistOutput.innerHTML = "";
+    if (!matches.length) {
+      var none = document.createElement("p");
+      none.style.padding = "20px";
+      none.style.color = "var(--ink-faint)";
+      none.style.fontSize = "0.9rem";
+      none.textContent = "No obvious risk patterns found — but a clean scan isn't a guarantee of accuracy. Read it once yourself, too.";
+      checklistOutput.appendChild(none);
+      return;
+    }
+
+    matches.forEach(function(m, index){
+      var cat = CATEGORIES[m.type];
+      var row = document.createElement("label");
+      row.className = "checklist-item";
+      row.setAttribute("for", "check-" + index);
+
+      var checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.id = "check-" + index;
+      checkbox.addEventListener("change", function(){
+        row.classList.toggle("checked", checkbox.checked);
+      });
+
+      var tag = document.createElement("span");
+      tag.className = "item-tag tag-" + cat.cls;
+      tag.textContent = cat.label;
+
+      var textWrap = document.createElement("span");
+      textWrap.className = "item-text";
+      textWrap.textContent = "\u201c" + m.text + "\u201d";
+
+      var hint = document.createElement("span");
+      hint.className = "item-hint";
+      hint.textContent = cat.hint;
+      textWrap.appendChild(hint);
+
+      row.appendChild(checkbox);
+      row.appendChild(tag);
+      row.appendChild(textWrap);
+      checklistOutput.appendChild(row);
+    });
+  }
+
+  function analyze(){
+    var text = inputText.value.trim();
+    if (!text) {
+      inputText.focus();
+      return;
+    }
+
+    var matches = collectMatches(text);
+
+    var counts = {};
+    matches.forEach(function(m){
+      counts[m.type] = (counts[m.type] || 0) + 1;
+    });
+
+    manuscriptOutput.innerHTML = buildManuscriptHtml(text, matches);
+    buildSummaryBar(counts);
+    buildChecklist(matches);
+    riskNumber.textContent = matches.length;
+
+    resultsGrid.hidden = false;
+    emptyState.hidden = true;
+
+    window.__verifyMatches = matches; // used by copy-checklist
+  }
+
+  function clearAll(){
+    inputText.value = "";
+    resultsGrid.hidden = true;
+    emptyState.hidden = false;
+    inputText.focus();
+  }
+
+  function copyChecklist(){
+    var matches = window.__verifyMatches || [];
+    if (!matches.length) return;
+
+    var lines = matches.map(function(m){
+      var cat = CATEGORIES[m.type];
+      return "[ ] (" + cat.label + ") \u201c" + m.text + "\u201d \u2014 " + cat.hint;
+    });
+    var text = "Verify/ai checklist \u2014 " + matches.length + " item(s) to check:\n\n" + lines.join("\n");
+
+    var finish = function(success){
+      var original = copyChecklistBtn.textContent;
+      copyChecklistBtn.textContent = success ? "Copied" : "Copy failed";
+      setTimeout(function(){ copyChecklistBtn.textContent = original; }, 1500);
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function(){ finish(true); }).catch(function(){ finish(false); });
+    } else {
+      var temp = document.createElement("textarea");
+      temp.value = text;
+      temp.style.position = "absolute";
+      temp.style.left = "-9999px";
+      document.body.appendChild(temp);
+      temp.select();
+      try { document.execCommand("copy"); finish(true); } catch (e) { finish(false); }
+      document.body.removeChild(temp);
+    }
+  }
+
+  analyzeBtn.addEventListener("click", analyze);
+  clearBtn.addEventListener("click", clearAll);
+  copyChecklistBtn.addEventListener("click", copyChecklist);
+  loadSampleBtn.addEventListener("click", function(){
+    inputText.value = SAMPLE_TEXT;
+    analyze();
+  });
+
+  inputText.addEventListener("keydown", function(e){
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+      analyze();
+    }
+  });
+})();
+</script>
+</body>
+</html>
